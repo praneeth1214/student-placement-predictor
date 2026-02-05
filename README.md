@@ -1,7 +1,4 @@
-## Live link
-
-student-placement-predictor-lexgnrynd3wkb7ecvwpcgy.streamlit.app
-
+Live Demo: https://student-placement-predictor-lexgnrynd3wkb7ecvwpcgy`.streamlit.app
 
 ## Student Performance & Placement Prediction System
 
