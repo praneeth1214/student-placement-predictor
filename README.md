@@ -1,3 +1,8 @@
+## Live link
+
+student-placement-predictor-lexgnrynd3wkb7ecvwpcgy.streamlit.app
+
+
 ## Student Performance & Placement Prediction System
 
 A machine learning web application that predicts student placement probability
