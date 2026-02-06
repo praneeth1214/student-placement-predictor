@@ -5,7 +5,7 @@ import pandas as pd
 from src.utils import prepare_input
 
 # --------------------------------------------------
-# Load trained model (Pipeline: Scaler + LogisticRegression)
+# Load trained model (Pipeline: StandardScaler + LogisticRegression)
 # --------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "model.pkl")
@@ -21,9 +21,8 @@ st.set_page_config(
 
 st.title("🎓 Student Placement Predictor")
 st.write(
-    "This application predicts **placement probability** based on "
-    "academic and skill-related factors. "
-    "Predictions are **advisory**, not deterministic."
+    "This application predicts **placement probability** based on academic and "
+    "skill-related factors. Predictions are **advisory**, not deterministic."
 )
 
 # --------------------------------------------------
@@ -37,7 +36,8 @@ projects = st.number_input("Number of Projects", min_value=0, max_value=10, valu
 
 attendance = st.slider("Attendance (%)", 0, 100, 75)
 internships = st.selectbox("Internships Done", [0, 1])
-backlogs = st.number_input("Number of Backlogs", min_value=0, max_value=10, value=0)
+backlogs = st.selectbox("Has Backlogs?", ["No", "Yes"])
+backlogs_val = 1 if backlogs == "Yes" else 0
 
 # --------------------------------------------------
 # Prediction
@@ -49,7 +49,7 @@ if st.button("🔮 Predict Placement"):
         projects=projects,
         internships=internships,
         skills=skills,
-        backlogs=backlogs
+        backlogs=backlogs_val
     )
 
     probability = model.predict_proba(input_df)[0][1]
@@ -65,58 +65,72 @@ if st.button("🔮 Predict Placement"):
         st.error("🔴 High Risk – Low placement probability")
 
     # --------------------------------------------------
-    # Priority Explanation
+    # Eligibility Gate (Backlogs)
     # --------------------------------------------------
-    st.subheader("🔍 Prediction Priority")
-    st.write(
-        """
-        The model primarily considers features in the following order:
-        1. **CGPA** – academic consistency (highest impact)
-        2. **Skills** – job readiness
-        3. **Projects** – practical exposure
-        """
-    )
+    st.subheader("🚫 Eligibility Risk Check")
 
-    # --------------------------------------------------
-    # Actionable Suggestions (Aligned with Priority)
-    # --------------------------------------------------
-    st.subheader("📌 Recommended Improvement Path")
-
-    if cgpa < 7:
-        st.write("🔴 **Primary focus:** Improve CGPA (highest influence on prediction).")
-    elif skills < 6:
-        st.write("🟠 **Secondary focus:** Strengthen technical skills.")
-    elif projects < 2:
-        st.write("🟡 **Tertiary focus:** Build more real-world projects.")
+    if backlogs_val == 1:
+        st.error(
+            "Backlogs act as a **strong eligibility filter** in the model. "
+            "Even with good CGPA or skills, backlogs significantly reduce "
+            "placement probability."
+        )
     else:
-        st.write("🟢 Strong profile across key influencing factors.")
+        st.success(
+            "No backlogs detected — eligible for ranking based on CGPA, skills, "
+            "and project experience."
+        )
 
     # --------------------------------------------------
-    # Feature Importance (Model-Based)
+    # Model-Based Feature Impact
     # --------------------------------------------------
-    st.subheader("📊 Feature Importance (Model-Based)")
-
     coef = model.named_steps["model"].coef_[0]
     features = input_df.columns
 
     importance_df = pd.DataFrame({
         "Feature": features,
-        "Importance": [abs(c) for c in coef]
-    }).sort_values(by="Importance", ascending=False)
+        "Impact": coef,
+        "Magnitude": [abs(c) for c in coef]
+    }).sort_values(by="Magnitude", ascending=False)
+
+    # --------------------------------------------------
+    # Ranking Factors (Exclude Backlogs)
+    # --------------------------------------------------
+    st.subheader("📊 Ranking Factors (Among Eligible Students)")
+
+    ranking_df = importance_df[importance_df["Feature"] != "backlogs"]
 
     st.bar_chart(
-        importance_df.set_index("Feature")
+        ranking_df.set_index("Feature")[["Magnitude"]]
     )
 
+    # --------------------------------------------------
+    # Actionable Guidance (Aligned with Reality)
+    # --------------------------------------------------
+    st.subheader("📌 Recommended Focus Path")
+
+    if backlogs_val == 1:
+        st.write("🔴 **Top priority:** Clear backlogs to pass eligibility filters.")
+    elif cgpa < 7:
+        st.write("🟠 **Primary ranking factor:** Improve CGPA.")
+    elif skills < 6:
+        st.write("🟡 **Secondary ranking factor:** Improve technical skills.")
+    elif projects < 2:
+        st.write("🔵 **Supporting factor:** Build more real-world projects.")
+    else:
+        st.write("🟢 Strong profile across ranking factors.")
+
 # --------------------------------------------------
-# Model Info Section
+# Model Info
 # --------------------------------------------------
 with st.expander("ℹ️ Model Information"):
     st.write(
         """
         - **Model:** Logistic Regression  
         - **Preprocessing:** StandardScaler  
-        - **Output:** Probability of placement  
-        - **Note:** This tool is for guidance only, not final decisions.
+        - **Interpretation:**  
+          - Backlogs → Eligibility (risk gate)  
+          - CGPA, Skills, Projects → Ranking factors  
+        - **Note:** Predictions are probabilistic and advisory.
         """
     )
