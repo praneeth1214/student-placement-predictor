@@ -5,7 +5,7 @@ import pandas as pd
 from src.utils import prepare_input
 
 # --------------------------------------------------
-# Load model safely
+# Load model
 # --------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "model.pkl")
@@ -21,22 +21,21 @@ st.set_page_config(
 
 st.title("🎓 Student Placement Predictor")
 st.caption(
-    "Predict placement probability and receive clear, actionable improvement guidance."
+    "Placement prediction based on combined academic and skill profile."
 )
 
 st.divider()
 
 # --------------------------------------------------
-# Input Section
+# Inputs
 # --------------------------------------------------
 st.subheader("📥 Student Profile")
 
 cgpa = st.slider("CGPA", 0.0, 10.0, 7.0, step=0.1)
 skills = st.slider("Skill Level (0–10)", 0, 10, 6)
 projects = st.number_input("Projects Completed", 0, 10, 2)
-
-attendance = st.slider("Attendance (%)", 0, 100, 75)
 internships = st.selectbox("Internships Done", [0, 1])
+attendance = st.slider("Attendance (%)", 0, 100, 75)
 backlogs = st.selectbox("Any Backlogs?", ["No", "Yes"])
 backlogs_val = 1 if backlogs == "Yes" else 0
 
@@ -62,7 +61,6 @@ if st.button("🔮 Predict Placement", use_container_width=True):
     st.subheader("📊 Prediction Result")
 
     col1, col2 = st.columns(2)
-
     with col1:
         st.metric("Placement Probability", f"{probability * 100:.1f}%")
 
@@ -77,23 +75,25 @@ if st.button("🔮 Predict Placement", use_container_width=True):
     # ---------------- Uncertainty ----------------
     if 0.45 <= probability <= 0.55:
         st.info(
-            "⚠️ Prediction uncertainty is high. Small improvements "
-            "in CGPA, skills, or projects may change the outcome."
+            "Prediction is uncertain. Small improvements can significantly "
+            "change the outcome."
         )
 
     st.divider()
 
-    # ---------------- Eligibility Check ----------------
-    st.subheader("🚫 Eligibility Check")
+    # ---------------- Explanation ----------------
+    st.subheader("ℹ️ How This Prediction Works")
+
+    st.write(
+        "The prediction is based on the **combined effect** of CGPA, skills, "
+        "projects, internships, attendance, and backlogs. "
+        "**No single factor decides the outcome on its own.**"
+    )
 
     if backlogs_val == 1:
-        st.error(
-            "Backlogs act as a strong eligibility filter and "
-            "significantly reduce placement chances."
-        )
-    else:
-        st.success(
-            "No backlogs detected — eligible for ranking evaluation."
+        st.warning(
+            "Backlogs reduce placement probability, but strong academics, skills, "
+            "projects, and internships can offset this impact."
         )
 
     st.divider()
@@ -103,64 +103,70 @@ if st.button("🔮 Predict Placement", use_container_width=True):
 
     suggestions = []
 
-    if backlogs_val == 1:
-        suggestions.append("🔴 Clear backlogs — this is the biggest blocker.")
-    if cgpa < 7:
-        suggestions.append("🟠 Improve CGPA to at least 7.0.")
-    if skills < 6:
-        suggestions.append("🟡 Strengthen technical skills with focused practice.")
-    if projects < 2:
-        suggestions.append("🔵 Build more real-world projects.")
-    if internships == 0:
-        suggestions.append("🟣 Gain internship or industry exposure.")
+    if cgpa >= 7:
+        suggestions.append("✔ CGPA is supporting your placement chances.")
+    else:
+        suggestions.append("⚠ Improving CGPA can significantly boost your chances.")
 
-    if not suggestions:
-        suggestions.append("🟢 Strong profile — focus on interview preparation.")
+    if skills >= 6:
+        suggestions.append("✔ Skill level positively impacts your profile.")
+    else:
+        suggestions.append("⚠ Strengthen technical skills to improve employability.")
+
+    if projects >= 2:
+        suggestions.append("✔ Projects add strong practical credibility.")
+    else:
+        suggestions.append("⚠ Build more real-world projects.")
+
+    if internships == 1:
+        suggestions.append("✔ Internship experience improves placement probability.")
+    else:
+        suggestions.append("⚠ Internship or industry exposure can help a lot.")
+
+    if backlogs_val == 1:
+        suggestions.append(
+            "⚠ Clearing backlogs will further improve your chances, "
+            "especially for top companies."
+        )
 
     for s in suggestions:
         st.write(s)
 
     st.divider()
 
-    # ---------------- Feature Importance (SAFE) ----------------
-    st.subheader("🔍 Key Ranking Factors")
+    # ---------------- Feature Insight ----------------
+    st.subheader("🔍 Relative Influence of Factors")
 
-    # SAFELY extract coefficients
     if hasattr(model, "base_estimator"):
-        # CalibratedClassifierCV
         coef = model.base_estimator.named_steps["model"].coef_[0]
     else:
-        # Plain Pipeline
         coef = model.named_steps["model"].coef_[0]
 
     features = input_df.columns
 
     importance_df = pd.DataFrame({
         "Feature": features,
-        "Impact": [abs(c) for c in coef]
-    }).sort_values(by="Impact", ascending=False)
-
-    # Exclude backlogs from ranking chart
-    ranking_df = importance_df[importance_df["Feature"] != "backlogs"]
+        "Influence": [abs(c) for c in coef]
+    }).sort_values(by="Influence", ascending=False)
 
     st.bar_chart(
-        ranking_df.set_index("Feature"),
+        importance_df.set_index("Feature"),
         height=250
     )
 
 # --------------------------------------------------
 # Footer
 # --------------------------------------------------
-with st.expander("ℹ️ About This Predictor"):
+with st.expander("ℹ️ About This Model"):
     st.write(
         """
-        **Model:** Logistic Regression (with scaling and calibration)  
-        **Evaluation:** Cross-validation, ROC-AUC, uncertainty handling  
+        **Model:** Logistic Regression (scaled & calibrated)  
+        **Evaluation:** Cross-validation, ROC-AUC  
 
-        **Interpretation Logic:**
-        - Backlogs → eligibility gate  
-        - CGPA, skills, projects → ranking factors  
+        **Design Principle:**  
+        - Backlogs are treated as a **penalty**, not a hard rule  
+        - Strong CGPA, skills, projects, and internships can offset negatives  
 
-        **Disclaimer:** This tool provides guidance, not guarantees.
+        **Disclaimer:** This is a guidance tool, not a guarantee.
         """
     )
