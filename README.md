@@ -1,5 +1,5 @@
 ## 🚀 Live Demo
-👉 https://student-placement-predictor-lexgnrynd3wkb7ecvwpcgy.streamlit.app/
+👉 https://student-placement-predictor-lexgnrynd3wkb7ecvwpcgy.streamlit.app/git
 
 
 ## Student Performance & Placement Prediction System
