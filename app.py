@@ -1,7 +1,6 @@
 import streamlit as st
 import joblib
 import os
-import pandas as pd
 from src.utils import prepare_input
 
 # --------------------------------------------------
@@ -12,27 +11,75 @@ MODEL_PATH = os.path.join(BASE_DIR, "model.pkl")
 model = joblib.load(MODEL_PATH)
 
 # --------------------------------------------------
-# Page setup
+# Session state (CRITICAL for What-If)
+# --------------------------------------------------
+if "base_probability" not in st.session_state:
+    st.session_state.base_probability = None
+
+if "base_input" not in st.session_state:
+    st.session_state.base_input = None
+
+# --------------------------------------------------
+# Role → Skills mapping (8 professions)
+# --------------------------------------------------
+ROLE_SKILLS = {
+    "Web Developer": ["HTML/CSS", "JavaScript", "React", "Backend Basics", "Git"],
+    "Backend Developer": ["Python / Java", "Databases", "APIs", "System Design", "Git"],
+    "Full Stack Developer": ["HTML/CSS", "JavaScript", "Frontend Framework", "Backend", "Databases"],
+    "Data Analyst": ["Python", "SQL", "Excel", "Statistics", "Data Visualization"],
+    "Data Scientist": ["Python", "SQL", "Statistics", "Machine Learning", "Pandas / NumPy"],
+    "Machine Learning Engineer": ["Python", "Machine Learning", "Deep Learning", "Model Deployment", "Data Handling"],
+    "AI Engineer": ["Python", "Deep Learning", "Neural Networks", "AI Frameworks", "Math for AI"],
+    "Software Engineer": ["Data Structures", "Algorithms", "Programming", "OOP", "Git"]
+}
+
+# --------------------------------------------------
+# Page config
 # --------------------------------------------------
 st.set_page_config(
-    page_title="Student Placement Predictor",
+    page_title="Career-Aware Placement Predictor",
     layout="centered"
 )
 
-st.title("🎓 Student Placement Predictor")
-st.caption(
-    "Placement prediction based on combined academic and skill profile."
+st.title("🎓 Career-Aware Placement Predictor")
+st.caption("Placement prediction using academics, experience, and role-specific skills.")
+
+st.divider()
+
+# --------------------------------------------------
+# Step 1: Profession
+# --------------------------------------------------
+st.subheader("🎯 Target Profession")
+role = st.selectbox(
+    "Select the role you are preparing for",
+    list(ROLE_SKILLS.keys())
 )
 
 st.divider()
 
 # --------------------------------------------------
-# Inputs
+# Step 2: Skills (role-dependent)
 # --------------------------------------------------
-st.subheader("📥 Student Profile")
+st.subheader("🧠 Skills You Know")
+
+selected_skills = []
+for skill in ROLE_SKILLS[role]:
+    if st.checkbox(skill):
+        selected_skills.append(skill)
+
+total_skills = len(ROLE_SKILLS[role])
+skill_score = (len(selected_skills) / total_skills) * 10
+
+st.caption(f"Calculated Skill Score: **{skill_score:.1f} / 10**")
+
+st.divider()
+
+# --------------------------------------------------
+# Step 3: Academic & Experience Details
+# --------------------------------------------------
+st.subheader("📘 Academic & Experience Details")
 
 cgpa = st.slider("CGPA", 0.0, 10.0, 7.0, step=0.1)
-skills = st.slider("Skill Level (0–10)", 0, 10, 6)
 projects = st.number_input("Projects Completed", 0, 10, 2)
 internships = st.selectbox("Internships Done", [0, 1])
 attendance = st.slider("Attendance (%)", 0, 100, 75)
@@ -51,122 +98,96 @@ if st.button("🔮 Predict Placement", use_container_width=True):
         attendance=attendance,
         projects=projects,
         internships=internships,
-        skills=skills,
+        skills=skill_score,
         backlogs=backlogs_val
     )
 
     probability = model.predict_proba(input_df)[0][1]
 
-    # ---------------- Result ----------------
+    # Save base state for What-If
+    st.session_state.base_probability = probability
+    st.session_state.base_input = {
+        "cgpa": cgpa,
+        "attendance": attendance,
+        "projects": projects,
+        "internships": internships,
+        "skills": skill_score,
+        "backlogs": backlogs_val
+    }
+
     st.subheader("📊 Prediction Result")
+    st.metric("Placement Probability", f"{probability * 100:.1f}%")
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("Placement Probability", f"{probability * 100:.1f}%")
+    if probability >= 0.7:
+        st.success("High Chance of Placement")
+    elif probability >= 0.4:
+        st.warning("Moderate Chance of Placement")
+    else:
+        st.error("Low Chance of Placement")
 
-    with col2:
-        if probability >= 0.7:
-            st.success("High Chance of Placement")
-        elif probability >= 0.4:
-            st.warning("Moderate Chance of Placement")
-        else:
-            st.error("Low Chance of Placement")
-
-    # ---------------- Uncertainty ----------------
-    if 0.45 <= probability <= 0.55:
-        st.info(
-            "Prediction is uncertain. Small improvements can significantly "
-            "change the outcome."
-        )
-
-    st.divider()
-
-    # ---------------- Explanation ----------------
-    st.subheader("ℹ️ How This Prediction Works")
-
-    st.write(
-        "The prediction is based on the **combined effect** of CGPA, skills, "
-        "projects, internships, attendance, and backlogs. "
-        "**No single factor decides the outcome on its own.**"
+    st.info(
+        "Prediction is based on the **combined effect** of role-specific skills, "
+        "CGPA, projects, internships, attendance, and backlogs."
     )
 
-    if backlogs_val == 1:
-        st.warning(
-            "Backlogs reduce placement probability, but strong academics, skills, "
-            "projects, and internships can offset this impact."
-        )
-
     st.divider()
 
-    # ---------------- Suggestions ----------------
-    st.subheader("📌 Personalized Improvement Suggestions")
+# --------------------------------------------------
+# WHAT-IF Skill Simulator (FIXED)
+# --------------------------------------------------
+st.subheader("🧪 What-If Skill Simulator")
 
-    suggestions = []
+if st.session_state.base_probability is None:
+    st.info("Run a placement prediction first to enable simulation.")
+else:
+    missing_skills = list(set(ROLE_SKILLS[role]) - set(selected_skills))
 
-    if cgpa >= 7:
-        suggestions.append("✔ CGPA is supporting your placement chances.")
+    if len(missing_skills) == 0:
+        st.success("You already meet all skill requirements for this role.")
     else:
-        suggestions.append("⚠ Improving CGPA can significantly boost your chances.")
-
-    if skills >= 6:
-        suggestions.append("✔ Skill level positively impacts your profile.")
-    else:
-        suggestions.append("⚠ Strengthen technical skills to improve employability.")
-
-    if projects >= 2:
-        suggestions.append("✔ Projects add strong practical credibility.")
-    else:
-        suggestions.append("⚠ Build more real-world projects.")
-
-    if internships == 1:
-        suggestions.append("✔ Internship experience improves placement probability.")
-    else:
-        suggestions.append("⚠ Internship or industry exposure can help a lot.")
-
-    if backlogs_val == 1:
-        suggestions.append(
-            "⚠ Clearing backlogs will further improve your chances, "
-            "especially for top companies."
+        skill_to_simulate = st.selectbox(
+            "Select a skill to simulate learning",
+            missing_skills,
+            key="whatif_skill"
         )
 
-    for s in suggestions:
-        st.write(s)
+        if st.button("Simulate Skill Improvement", key="simulate_btn"):
+            simulated_skill_count = len(selected_skills) + 1
+            simulated_skill_score = (simulated_skill_count / total_skills) * 10
 
-    st.divider()
+            simulated_input = prepare_input(
+                cgpa=st.session_state.base_input["cgpa"],
+                attendance=st.session_state.base_input["attendance"],
+                projects=st.session_state.base_input["projects"],
+                internships=st.session_state.base_input["internships"],
+                skills=simulated_skill_score,
+                backlogs=st.session_state.base_input["backlogs"]
+            )
 
-    # ---------------- Feature Insight ----------------
-    st.subheader("🔍 Relative Influence of Factors")
+            simulated_probability = model.predict_proba(simulated_input)[0][1]
+            delta = (simulated_probability - st.session_state.base_probability) * 100
 
-    if hasattr(model, "base_estimator"):
-        coef = model.base_estimator.named_steps["model"].coef_[0]
-    else:
-        coef = model.named_steps["model"].coef_[0]
+            st.metric(
+                "New Placement Probability",
+                f"{simulated_probability * 100:.1f}%",
+                delta=f"{delta:+.1f}%"
+            )
 
-    features = input_df.columns
-
-    importance_df = pd.DataFrame({
-        "Feature": features,
-        "Influence": [abs(c) for c in coef]
-    }).sort_values(by="Influence", ascending=False)
-
-    st.bar_chart(
-        importance_df.set_index("Feature"),
-        height=250
-    )
+            st.caption(
+                f"Learning **{skill_to_simulate}** increases skill score "
+                f"from {st.session_state.base_input['skills']:.1f} → {simulated_skill_score:.1f}."
+            )
 
 # --------------------------------------------------
 # Footer
 # --------------------------------------------------
-with st.expander("ℹ️ About This Model"):
+with st.expander("ℹ️ About This System"):
     st.write(
         """
-        **Model:** Logistic Regression (scaled & calibrated)  
-        **Evaluation:** Cross-validation, ROC-AUC  
-
-        **Design Principle:**  
-        - Backlogs are treated as a **penalty**, not a hard rule  
-        - Strong CGPA, skills, projects, and internships can offset negatives  
-
-        **Disclaimer:** This is a guidance tool, not a guarantee.
+        - Profession-aware skill evaluation  
+        - Skills are **computed**, not self-rated  
+        - Backlogs are a **penalty**, not a hard rule  
+        - WHAT-IF simulator shows **decision impact**, not guarantees  
+        - Designed to reflect real hiring trade-offs
         """
     )
