@@ -200,4 +200,4 @@ st.markdown("</div>", unsafe_allow_html=True)
 # --------------------------------------------------
 # FOOTER
 # --------------------------------------------------
-st.markdown("<center style='color:#64748b;'>AI Career Intelligence • Enterprise Edition • EMINENCE 2026</center>", unsafe_allow_html=True)
+st.markdown("<center style='color:#64748b;'>AI Career Intelligence • Enterprise Edition </center>", unsafe_allow_html=True)
