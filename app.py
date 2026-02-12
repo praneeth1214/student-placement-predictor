@@ -1,193 +1,203 @@
 import streamlit as st
 import joblib
 import os
+import plotly.graph_objects as go
 from src.utils import prepare_input
 
 # --------------------------------------------------
-# Load model
+# PAGE CONFIG
+# --------------------------------------------------
+st.set_page_config(
+    page_title="AI Career Intelligence Dashboard",
+    page_icon="🧠",
+    layout="wide"
+)
+
+# --------------------------------------------------
+# ENTERPRISE UI STYLE
+# --------------------------------------------------
+st.markdown("""
+<style>
+body {
+    background-color: #0b1120;
+}
+h1, h2, h3 {
+    color: #e2e8f0;
+}
+.section-card {
+    background-color: #111827;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+.stButton>button {
+    background-color: #2563eb;
+    color: white;
+    font-weight: 600;
+    border-radius: 8px;
+    height: 45px;
+    border: none;
+}
+.stButton>button:hover {
+    background-color: #1d4ed8;
+}
+footer {visibility: hidden;}
+</style>
+""", unsafe_allow_html=True)
+
+# --------------------------------------------------
+# LOAD MODEL
 # --------------------------------------------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE_DIR, "model.pkl")
 model = joblib.load(MODEL_PATH)
 
 # --------------------------------------------------
-# Session state (CRITICAL for What-If)
-# --------------------------------------------------
-if "base_probability" not in st.session_state:
-    st.session_state.base_probability = None
-
-if "base_input" not in st.session_state:
-    st.session_state.base_input = None
-
-# --------------------------------------------------
-# Role → Skills mapping (8 professions)
+# ROLE SKILL MAPPING
 # --------------------------------------------------
 ROLE_SKILLS = {
     "Web Developer": ["HTML/CSS", "JavaScript", "React", "Backend Basics", "Git"],
-    "Backend Developer": ["Python / Java", "Databases", "APIs", "System Design", "Git"],
-    "Full Stack Developer": ["HTML/CSS", "JavaScript", "Frontend Framework", "Backend", "Databases"],
     "Data Analyst": ["Python", "SQL", "Excel", "Statistics", "Data Visualization"],
-    "Data Scientist": ["Python", "SQL", "Statistics", "Machine Learning", "Pandas / NumPy"],
-    "Machine Learning Engineer": ["Python", "Machine Learning", "Deep Learning", "Model Deployment", "Data Handling"],
+    "Machine Learning Engineer": ["Python", "Machine Learning", "Deep Learning", "Model Deployment", "Pandas"],
     "AI Engineer": ["Python", "Deep Learning", "Neural Networks", "AI Frameworks", "Math for AI"],
     "Software Engineer": ["Data Structures", "Algorithms", "Programming", "OOP", "Git"]
 }
 
 # --------------------------------------------------
-# Page config
+# HEADER
 # --------------------------------------------------
-st.set_page_config(
-    page_title="Career-Aware Placement Predictor",
-    layout="centered"
-)
-
-st.title("🎓 Career-Aware Placement Predictor")
-st.caption("Placement prediction using academics, experience, and role-specific skills.")
-
+st.markdown("<h1>🧠 AI Career Intelligence Dashboard</h1>", unsafe_allow_html=True)
+st.markdown("Enterprise-grade student career readiness and placement analytics")
 st.divider()
 
 # --------------------------------------------------
-# Step 1: Profession
+# ROLE SECTION
 # --------------------------------------------------
-st.subheader("🎯 Target Profession")
-role = st.selectbox(
-    "Select the role you are preparing for",
-    list(ROLE_SKILLS.keys())
-)
+st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+st.subheader("🎯 Target Role Selection")
 
-st.divider()
+role = st.selectbox("Select Role", list(ROLE_SKILLS.keys()))
+required_skills = ROLE_SKILLS[role]
+st.markdown("</div>", unsafe_allow_html=True)
 
 # --------------------------------------------------
-# Step 2: Skills (role-dependent)
+# SKILL SECTION
 # --------------------------------------------------
-st.subheader("🧠 Skills You Know")
+st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+st.subheader("🧠 Skill Assessment Matrix")
 
 selected_skills = []
-for skill in ROLE_SKILLS[role]:
-    if st.checkbox(skill):
-        selected_skills.append(skill)
+cols = st.columns(3)
 
-total_skills = len(ROLE_SKILLS[role])
-skill_score = (len(selected_skills) / total_skills) * 10
+for i, skill in enumerate(required_skills):
+    with cols[i % 3]:
+        if st.checkbox(skill):
+            selected_skills.append(skill)
 
-st.caption(f"Calculated Skill Score: **{skill_score:.1f} / 10**")
+skill_score = (len(selected_skills) / len(required_skills)) * 10
+missing_skills = list(set(required_skills) - set(selected_skills))
 
-st.divider()
+fig = go.Figure()
+fig.add_trace(go.Bar(
+    x=required_skills,
+    y=[1 if s in selected_skills else 0 for s in required_skills],
+    marker_color="#2563eb"
+))
+
+fig.update_layout(
+    height=300,
+    plot_bgcolor="#111827",
+    paper_bgcolor="#111827",
+    font_color="#e2e8f0",
+    yaxis=dict(range=[0, 1])
+)
+
+st.plotly_chart(fig, use_container_width=True)
+
+if missing_skills:
+    st.warning("Skill Gaps Identified")
+else:
+    st.success("All Required Skills Covered")
+
+st.markdown("</div>", unsafe_allow_html=True)
 
 # --------------------------------------------------
-# Step 3: Academic & Experience Details
+# ACADEMIC SECTION
 # --------------------------------------------------
-st.subheader("📘 Academic & Experience Details")
+st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+st.subheader("📘 Academic & Experience Profile")
 
-cgpa = st.slider("CGPA", 0.0, 10.0, 7.0, step=0.1)
-projects = st.number_input("Projects Completed", 0, 10, 2)
-internships = st.selectbox("Internships Done", [0, 1])
-attendance = st.slider("Attendance (%)", 0, 100, 75)
-backlogs = st.selectbox("Any Backlogs?", ["No", "Yes"])
-backlogs_val = 1 if backlogs == "Yes" else 0
+col1, col2, col3 = st.columns(3)
 
-st.divider()
+with col1:
+    cgpa = st.slider("CGPA", 0.0, 10.0, 7.0, step=0.1)
+
+with col2:
+    projects = st.number_input("Projects", 0, 10, 2)
+
+with col3:
+    internships = st.selectbox("Internships", [0, 1, 2])
+
+st.markdown("</div>", unsafe_allow_html=True)
 
 # --------------------------------------------------
-# Prediction
+# READINESS SCORE
 # --------------------------------------------------
-if st.button("🔮 Predict Placement", use_container_width=True):
+readiness_score = (
+    (cgpa / 10) * 40 +
+    (skill_score / 10) * 35 +
+    (projects / 10) * 15 +
+    (internships * 5)
+)
+
+readiness_score = max(0, min(100, readiness_score))
+
+st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+st.subheader("🚀 Career Readiness Index")
+
+st.progress(readiness_score / 100)
+st.metric("Overall Readiness", f"{readiness_score:.1f}%")
+
+st.markdown("</div>", unsafe_allow_html=True)
+
+# --------------------------------------------------
+# PREDICTION SECTION
+# --------------------------------------------------
+st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+st.subheader("📊 Placement Prediction Engine")
+
+if st.button("Analyze Placement Potential", use_container_width=True):
 
     input_df = prepare_input(
         cgpa=cgpa,
-        attendance=attendance,
+        attendance=75,   # kept for model compatibility
         projects=projects,
         internships=internships,
         skills=skill_score,
-        backlogs=backlogs_val
+        backlogs=0
     )
 
     probability = model.predict_proba(input_df)[0][1]
 
-    # Save base state for What-If
-    st.session_state.base_probability = probability
-    st.session_state.base_input = {
-        "cgpa": cgpa,
-        "attendance": attendance,
-        "projects": projects,
-        "internships": internships,
-        "skills": skill_score,
-        "backlogs": backlogs_val
-    }
+    colA, colB = st.columns(2)
 
-    st.subheader("📊 Prediction Result")
-    st.metric("Placement Probability", f"{probability * 100:.1f}%")
+    with colA:
+        st.metric("Placement Probability", f"{probability*100:.1f}%")
 
-    if probability >= 0.7:
-        st.success("High Chance of Placement")
-    elif probability >= 0.4:
-        st.warning("Moderate Chance of Placement")
+    with colB:
+        st.metric("Readiness Score", f"{readiness_score:.1f}%")
+
+    if probability >= 0.75:
+        st.success("High Placement Stability")
+    elif probability >= 0.6:
+        st.warning("Moderate Stability")
     else:
-        st.error("Low Chance of Placement")
+        st.error("Low Stability – Improvement Required")
 
-    st.info(
-        "Prediction is based on the **combined effect** of role-specific skills, "
-        "CGPA, projects, internships, attendance, and backlogs."
-    )
-
-    st.divider()
+st.markdown("</div>", unsafe_allow_html=True)
 
 # --------------------------------------------------
-# WHAT-IF Skill Simulator (FIXED)
+# FOOTER
 # --------------------------------------------------
-st.subheader("🧪 What-If Skill Simulator")
-
-if st.session_state.base_probability is None:
-    st.info("Run a placement prediction first to enable simulation.")
-else:
-    missing_skills = list(set(ROLE_SKILLS[role]) - set(selected_skills))
-
-    if len(missing_skills) == 0:
-        st.success("You already meet all skill requirements for this role.")
-    else:
-        skill_to_simulate = st.selectbox(
-            "Select a skill to simulate learning",
-            missing_skills,
-            key="whatif_skill"
-        )
-
-        if st.button("Simulate Skill Improvement", key="simulate_btn"):
-            simulated_skill_count = len(selected_skills) + 1
-            simulated_skill_score = (simulated_skill_count / total_skills) * 10
-
-            simulated_input = prepare_input(
-                cgpa=st.session_state.base_input["cgpa"],
-                attendance=st.session_state.base_input["attendance"],
-                projects=st.session_state.base_input["projects"],
-                internships=st.session_state.base_input["internships"],
-                skills=simulated_skill_score,
-                backlogs=st.session_state.base_input["backlogs"]
-            )
-
-            simulated_probability = model.predict_proba(simulated_input)[0][1]
-            delta = (simulated_probability - st.session_state.base_probability) * 100
-
-            st.metric(
-                "New Placement Probability",
-                f"{simulated_probability * 100:.1f}%",
-                delta=f"{delta:+.1f}%"
-            )
-
-            st.caption(
-                f"Learning **{skill_to_simulate}** increases skill score "
-                f"from {st.session_state.base_input['skills']:.1f} → {simulated_skill_score:.1f}."
-            )
-
-# --------------------------------------------------
-# Footer
-# --------------------------------------------------
-with st.expander("ℹ️ About This System"):
-    st.write(
-        """
-        - Profession-aware skill evaluation  
-        - Skills are **computed**, not self-rated  
-        - Backlogs are a **penalty**, not a hard rule  
-        - WHAT-IF simulator shows **decision impact**, not guarantees  
-        - Designed to reflect real hiring trade-offs
-        """
-    )
+st.markdown("<center style='color:#64748b;'>AI Career Intelligence • Enterprise Edition • EMINENCE 2026</center>", unsafe_allow_html=True)

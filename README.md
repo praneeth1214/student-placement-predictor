@@ -1,26 +1,29 @@
-## 🚀 Live Demo
-👉 https://student-placement-predictor-lexgnrynd3wkb7ecvwpcgy.streamlit.app/git
+## 🚀 AI Career Intelligence Dashboard
 
-
-## Student Performance & Placement Prediction System
-
-A machine learning web application that predicts student placement probability
-based on academic and skill-related features.
+Enterprise-grade student career readiness and placement analytics system.
 
 ### Features
-- Placement probability prediction
-- Risk categorization
-- What-if analysis
+- Role-based skill alignment matrix
+- Career Readiness Index
+- ML-based placement probability
+- Enterprise-style interactive dashboard
+- Probability calibration using Logistic Regression
+
+### Model Validation
+- 5-Fold Cross Validation
+- ROC-AUC Evaluation
+- Probability Calibration (Sigmoid)
 
 ### Tech Stack
 - Python
 - Pandas
 - Scikit-learn
 - Streamlit
+- Plotly
 
 ### Model
-- Logistic Regression (explainable baseline)
+Calibrated Logistic Regression (interpretable & stable)
 
 ### Limitations
 - Small dataset
-- Predictions are probabilistic, not deterministic
+- Probabilistic predictions, not deterministic
